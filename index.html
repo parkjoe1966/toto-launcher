@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>토토 예측</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#2563eb">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="토토 예측">
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+         background: #2563eb; color: #fff; font-family: system-ui, -apple-system, "Malgun Gothic", sans-serif; }
+  .box { width: min(340px, calc(100% - 32px)); text-align: center; }
+  img { width: 96px; height: 96px; border-radius: 22px; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+  h1 { font-size: 1.4rem; margin: 16px 0 6px; }
+  p { margin: 6px 0; opacity: .85; font-size: .95rem; line-height: 1.5; }
+  form { margin-top: 18px; display: none; }
+  input, button { width: 100%; box-sizing: border-box; font-size: 1.05rem; padding: 14px; border-radius: 12px; border: 0; }
+  input { margin-bottom: 10px; color: #111; }
+  button { background: #facc15; color: #111; font-weight: 700; }
+  a { color: #fff; font-size: .85rem; opacity: .8; }
+  #reset { display: none; margin-top: 18px; }
+</style>
+</head>
+<body>
+<div class="box">
+  <img src="icon-192.png" alt="">
+  <h1>토토 예측</h1>
+  <p id="msg">여는 중...</p>
+  <form id="f">
+    <input id="pw" type="password" placeholder="비밀번호" autocomplete="current-password" required>
+    <button type="submit">입장</button>
+    <p>처음 한 번만 입력합니다. 비밀번호 자체는 저장하지 않고,<br>암호화된 값만 이 휴대폰에 저장합니다.</p>
+  </form>
+  <a id="reset" href="?reset">비밀번호 다시 입력</a>
+</div>
+<script>
+// 홈 화면 아이콘 → 이 페이지 → 앱(자동 로그인 토큰 포함)으로 이동.
+// 토큰 = HMAC-SHA256(비밀번호, "sportstoto-login") 앞 32자. app/dashboard.py 의 login_token() 과 같아야 한다.
+const APP = "https://sportstoto-pj.streamlit.app/";
+const KEY = "toto_login_token";
+
+function store(op, v) {
+  try {
+    if (op === "get") return localStorage.getItem(KEY);
+    if (op === "set") localStorage.setItem(KEY, v);
+    if (op === "del") localStorage.removeItem(KEY);
+  } catch (e) { return null; }
+}
+
+function go(token) {
+  location.replace(token ? APP + "?k=" + encodeURIComponent(token) : APP);
+}
+
+async function makeToken(pw) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(pw), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode("sportstoto-login"));
+  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+}
+
+const params = new URLSearchParams(location.search);
+if (params.has("reset")) { store("del"); history.replaceState(null, "", location.pathname); }
+
+const saved = store("get");
+if (saved) {
+  // 잠깐 "다시 입력" 링크를 보여준 뒤 이동 (비밀번호를 바꿨을 때 다시 설정할 수 있도록)
+  document.getElementById("reset").style.display = "inline-block";
+  setTimeout(() => go(saved), 700);
+} else if (!window.crypto || !crypto.subtle) {
+  go(null); // 암호화 기능이 없는 브라우저: 앱에서 직접 로그인
+} else {
+  document.getElementById("msg").textContent = "앱 비밀번호를 입력하세요.";
+  const f = document.getElementById("f");
+  f.style.display = "block";
+  f.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const token = await makeToken(document.getElementById("pw").value);
+    store("set", token);
+    go(token);
+  });
+}
+</script>
+</body>
+</html>

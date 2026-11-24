@@ -1,7 +1,8 @@
 {
   "name": "토토 예측",
   "short_name": "토토 예측",
-  "start_url": "./",
+  "id": "./",
+  "start_url": "./?launch",
   "scope": "./",
   "display": "standalone",
   "background_color": "#2563eb",
